@@ -1,0 +1,15 @@
+{
+  "name": "Work Calendar",
+  "short_name": "WorkCal",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f4c5.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    }
+  ]
+}
