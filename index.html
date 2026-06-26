@@ -5,9 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Work Calendar</title>
 
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0f172a">
-
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
 <style>
@@ -21,14 +18,12 @@ body{
 
 header{
   position:sticky;top:0;
-  background:rgba(15,23,42,.9);
+  background:#0f172a;
   padding:16px;
   display:flex;
   flex-direction:column;
   gap:10px;
 }
-
-h1{margin:0;font-size:1.3rem}
 
 #companyFilter{
   padding:10px;
@@ -39,13 +34,24 @@ h1{margin:0;font-size:1.3rem}
   width:220px;
 }
 
+button{
+  padding:10px;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  font-weight:700;
+}
+
+.export{background:#3b82f6;color:#fff}
+.import{background:#f59e0b;color:#111;margin-left:8px}
+
 #calendar{padding:12px}
 
 .month{
   background:rgba(255,255,255,.06);
-  border-radius:16px;
-  padding:12px;
   margin-bottom:16px;
+  padding:12px;
+  border-radius:14px;
 }
 
 .days{
@@ -71,27 +77,15 @@ h1{margin:0;font-size:1.3rem}
   border-radius:999px;
   color:#111;
   font-weight:700;
-  white-space:nowrap;
-  overflow:hidden;
 }
 
 #summary{
-  position:sticky;bottom:0;
+  position:sticky;
+  bottom:0;
   background:#0f172a;
-  padding:14px;
+  padding:12px;
   border-top:1px solid rgba(255,255,255,.1);
 }
-
-button{
-  padding:10px;
-  border:none;
-  border-radius:10px;
-  cursor:pointer;
-  font-weight:700;
-}
-
-.export{background:#3b82f6;color:#fff}
-.import{background:#f59e0b;color:#111;margin-left:8px}
 
 .summary-item{
   display:flex;
@@ -114,46 +108,79 @@ button{
   <select id="companyFilter" onchange="setFilter(this.value)">
     <option value="">All Companies</option>
   </select>
+
+  <div>
+    <button class="export" onclick="exportExcel()">Export Excel</button>
+    <button class="import" onclick="document.getElementById('file').click()">Import Excel</button>
+    <input type="file" id="file" hidden onchange="importExcel(event)">
+  </div>
 </header>
 
 <div id="calendar"></div>
 
 <div id="summary">
-  <button class="export" onclick="exportExcel()">Export Excel</button>
-  <button class="import" onclick="document.getElementById('fileInput').click()">Import Excel</button>
-  <input type="file" id="fileInput" style="display:none" onchange="importExcel(event)">
-
   <h3>Total Hours</h3>
   <div id="summaryList"></div>
 </div>
 
 <script>
-const storageKey='work-calendar-data';
-let data = JSON.parse(localStorage.getItem(storageKey) || '{}');
-let filterCompany='';
+let data = JSON.parse(localStorage.getItem("work-data") || "{}");
+let filter = "";
 
-function saveData(){
-  localStorage.setItem(storageKey, JSON.stringify(data));
+function save(){
+  localStorage.setItem("work-data", JSON.stringify(data));
 }
 
-/* ================= FILTER FIX ================= */
-function setFilter(value){
-  filterCompany = value;   // 🔥 FIXED
+/* ================= FILTER ================= */
+function setFilter(v){
+  filter = v;
   render();
 }
 
-/* ================= COLORS ================= */
-function color(place){
+/* ================= COLOR ================= */
+function color(p){
   let h=0;
-  for(let i=0;i<place.length;i++) h=place.charCodeAt(i)+((h<<5)-h);
+  for(let i=0;i<p.length;i++) h=p.charCodeAt(i)+((h<<5)-h);
   return `hsl(${Math.abs(h)%360} 70% 60%)`;
 }
 
 /* ================= HOURS ================= */
 function hours(s,e){
-  const [sh,sm]=s.split(':').map(Number);
-  const [eh,em]=e.split(':').map(Number);
+  const [sh,sm]=s.split(":").map(Number);
+  const [eh,em]=e.split(":").map(Number);
   return Math.max(0,(eh*60+em)-(sh*60+sm))/60;
+}
+
+/* ================= IMPORT EXCEL ================= */
+function importExcel(e){
+  const file=e.target.files[0];
+  const reader=new FileReader();
+
+  reader.onload=(ev)=>{
+    const wb=XLSX.read(ev.target.result,{type:"binary"});
+    const sheet=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(sheet);
+
+    data={};
+
+    rows.forEach(r=>{
+      const date=r.Date;
+      if(!data[date]) data[date]=[];
+
+      data[date].push({
+        place:r.Company,
+        start:r.Start,
+        end:r.End,
+        hours:Number(r.Hours)||hours(r.Start,r.End)
+      });
+    });
+
+    save();
+    updateFilter();
+    render();
+  };
+
+  reader.readAsBinaryString(file);
 }
 
 /* ================= EXPORT ================= */
@@ -174,118 +201,82 @@ function exportExcel(){
     });
   });
 
-  // ALL
   const all=[];
   Object.values(grouped).forEach(v=>all.push(...v));
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(all),'All');
 
-  // COMPANY SHEETS
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(all),"All");
+
   Object.entries(grouped).forEach(([k,v])=>{
     XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(v),k.slice(0,31));
   });
 
-  XLSX.writeFile(wb,'work-hours.xlsx');
-}
-
-/* ================= IMPORT (NEW) ================= */
-function importExcel(e){
-  const file=e.target.files[0];
-  const reader=new FileReader();
-
-  reader.onload=(evt)=>{
-    const wb=XLSX.read(evt.target.result,{type:'binary'});
-    const sheet=wb.Sheets[wb.SheetNames[0]];
-    const rows=XLSX.utils.sheet_to_json(sheet);
-
-    data={};
-
-    rows.forEach(r=>{
-      const date=r.Date;
-      if(!data[date]) data[date]=[];
-
-      const start=r.Start;
-      const end=r.End;
-      const place=r.Company || r.Workplace;
-
-      data[date].push({
-        place,
-        start,
-        end,
-        hours: r.Hours ? Number(r.Hours) : hours(start,end)
-      });
-    });
-
-    saveData();
-    updateFilter();
-    render();
-  };
-
-  reader.readAsBinaryString(file);
+  XLSX.writeFile(wb,"work-hours.xlsx");
 }
 
 /* ================= FILTER OPTIONS ================= */
 function updateFilter(){
-  const sel=document.getElementById('companyFilter');
+  const sel=document.getElementById("companyFilter");
   const set=new Set();
 
   Object.values(data).forEach(arr=>{
     arr.forEach(e=>set.add(e.place));
   });
 
-  const current=sel.value;
+  const cur=sel.value;
   sel.innerHTML=`<option value="">All Companies</option>`;
 
   [...set].sort().forEach(c=>{
-    const o=document.createElement('option');
+    const o=document.createElement("option");
     o.value=c;
     o.textContent=c;
     sel.appendChild(o);
   });
 
-  sel.value=current;
+  sel.value=cur;
 }
 
-/* ================= RENDER ================= */
+/* ================= RENDER (FIXED FILTER BUG) ================= */
 function render(){
-  const cal=document.getElementById('calendar');
-  cal.innerHTML='';
+  const cal=document.getElementById("calendar");
+  cal.innerHTML="";
 
   const year=new Date().getFullYear();
 
   for(let m=0;m<12;m++){
     const month=new Date(year,m,1);
 
-    const box=document.createElement('div');
-    box.className='month';
+    const box=document.createElement("div");
+    box.className="month";
 
-    const title=document.createElement('h3');
-    title.textContent=month.toLocaleString('default',{month:'long',year:'numeric'});
+    const title=document.createElement("h3");
+    title.textContent=month.toLocaleString("default",{month:"long",year:"numeric"});
     box.appendChild(title);
 
-    const grid=document.createElement('div');
-    grid.className='days';
+    const grid=document.createElement("div");
+    grid.className="days";
 
-    let start=(month.getDay()+6)%7;
-    for(let i=0;i<start;i++) grid.appendChild(document.createElement('div')).className='day empty';
+    const start=(month.getDay()+6)%7;
+    for(let i=0;i<start;i++) grid.appendChild(document.createElement("div"));
 
     const days=new Date(year,m+1,0).getDate();
 
     for(let d=1;d<=days;d++){
-      const date=`${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const date=`${year}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
 
-      const cell=document.createElement('div');
-      cell.className='day';
+      const cell=document.createElement("div");
+      cell.className="day";
 
-      const num=document.createElement('div');
-      num.className='day-number';
+      const num=document.createElement("div");
+      num.className="day-number";
       num.textContent=d;
       cell.appendChild(num);
 
+      // ✅ ONLY ONE LOOP (FIXED BUG)
       (data[date]||[])
-        .filter(e=>!filterCompany || e.place===filterCompany)
+        .filter(e=>!filter || e.place===filter)
         .forEach(e=>{
-          const div=document.createElement('div');
-          div.className='entry';
+          const div=document.createElement("div");
+          div.className="entry";
           div.style.background=color(e.place);
           div.textContent=`${e.place} ${e.start}-${e.end}`;
           cell.appendChild(div);
@@ -307,20 +298,20 @@ function renderSummary(){
 
   Object.values(data).forEach(arr=>{
     arr.forEach(e=>{
-      if(filterCompany && e.place!==filterCompany) return;
+      if(filter && e.place!==filter) return;
       totals[e.place]=(totals[e.place]||0)+e.hours;
     });
   });
 
-  const list=document.getElementById('summaryList');
-  list.innerHTML='';
+  const list=document.getElementById("summaryList");
+  list.innerHTML="";
 
   Object.entries(totals).forEach(([k,v])=>{
-    const div=document.createElement('div');
-    div.className='summary-item';
+    const div=document.createElement("div");
+    div.className="summary-item";
     div.innerHTML=`
       <div><span class="badge" style="background:${color(k)}"></span>${k}</div>
-      <strong>${v.toFixed(1)} h</strong>
+      <strong>${v.toFixed(1)}h</strong>
     `;
     list.appendChild(div);
   });
