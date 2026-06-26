@@ -25,8 +25,20 @@ header{
   backdrop-filter:blur(10px);
   padding:16px;
   border-bottom:1px solid rgba(255,255,255,.1);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
 }
 h1{margin:0;font-size:1.4rem}
+
+#companyFilter{
+  padding:10px;
+  border-radius:10px;
+  border:none;
+  background:#1f2937;
+  color:#fff;
+  width:200px;
+}
 
 #calendar{padding:12px}
 
@@ -39,17 +51,10 @@ h1{margin:0;font-size:1.4rem}
 }
 .month h2{margin:0 0 12px}
 
-.weekdays,.days{
+.days{
   display:grid;
   grid-template-columns:repeat(7,1fr);
   gap:6px;
-}
-
-.weekdays div{
-  text-align:center;
-  color:#94a3b8;
-  font-size:.8rem;
-  padding:4px 0;
 }
 
 .day{
@@ -144,19 +149,12 @@ input{
 .save{background:#22c55e;color:#fff}
 .delete{background:#ef4444;color:#fff}
 .cancel{background:#334155;color:#fff}
-.footer { text-align: center;  margin-top: 20px; font-size: 12px; color: #888; }
 
-.small-list{
-  margin-top:10px;
-  max-height:120px;
-  overflow:auto;
-  font-size:.75rem;
-}
-.small-item{
-  padding:6px;
-  background:#1f2937;
-  border-radius:10px;
-  margin-bottom:6px;
+.footer{
+  text-align:center;
+  margin-top:20px;
+  font-size:12px;
+  color:#888;
 }
 </style>
 </head>
@@ -165,6 +163,10 @@ input{
 
 <header>
   <h1>📅 Work Calendar</h1>
+
+  <select id="companyFilter" onchange="render()">
+    <option value="">All Companies</option>
+  </select>
 </header>
 
 <div id="calendar"></div>
@@ -176,6 +178,7 @@ input{
 
   <h3 style="margin-top:0">Total Hours</h3>
   <div id="summaryList"></div>
+
   <div class="footer">
     &copy; <span id="currentYear"></span> Work Calendar App - LM
   </div>
@@ -185,7 +188,7 @@ input{
   <div class="modal-content">
     <h3 id="modalDate"></h3>
 
-    <label>Workplace</label>
+    <label>Company</label>
     <input id="placeInput">
 
     <label>Start time</label>
@@ -206,6 +209,9 @@ input{
 const storageKey='work-calendar-data';
 let data = JSON.parse(localStorage.getItem(storageKey) || '{}');
 let selectedDate='';
+let filterCompany='';
+
+document.getElementById("currentYear").textContent = new Date().getFullYear();
 
 function saveData(){
   localStorage.setItem(storageKey, JSON.stringify(data));
@@ -249,6 +255,7 @@ function saveEntry(){
   });
 
   saveData();
+  updateFilterOptions();
   render();
 }
 
@@ -256,18 +263,44 @@ function deleteDay(){
   delete data[selectedDate];
   saveData();
   closeModal();
+  updateFilterOptions();
   render();
 }
 
-/* ========== EXPORT EXCEL ========== */
+/* ================= FILTER ================= */
+function updateFilterOptions(){
+  const select=document.getElementById("companyFilter");
+
+  const companies=new Set();
+  Object.values(data).forEach(arr=>{
+    arr.forEach(e=>companies.add(e.place));
+  });
+
+  const current=select.value;
+
+  select.innerHTML=`<option value="">All Companies</option>`;
+  [...companies].sort().forEach(c=>{
+    const opt=document.createElement("option");
+    opt.value=c;
+    opt.textContent=c;
+    select.appendChild(opt);
+  });
+
+  select.value=current;
+}
+
+/* ================= EXPORT ================= */
 function exportExcel(){
-  const rows=[];
+  const wb=XLSX.utils.book_new();
+
+  const grouped={};
 
   Object.entries(data).forEach(([date,entries])=>{
     entries.forEach(e=>{
-      rows.push({
+      if(!grouped[e.place]) grouped[e.place]=[];
+      grouped[e.place].push({
         Date:date,
-        Workplace:e.place,
+        Company:e.place,
         Start:e.start,
         End:e.end,
         Hours:e.hours.toFixed(2)
@@ -275,23 +308,26 @@ function exportExcel(){
     });
   });
 
-  const ws=XLSX.utils.json_to_sheet(rows);
+  // ALL SHEET
+  const allRows=[];
+  Object.entries(grouped).forEach(([k,v])=>{
+    allRows.push(...v);
+  });
 
-  ws['!cols']=[
-    {wch:12},
-    {wch:20},
-    {wch:10},
-    {wch:10},
-    {wch:10}
-  ];
+  const wsAll=XLSX.utils.json_to_sheet(allRows);
+  XLSX.utils.book_append_sheet(wb,wsAll,'All');
 
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Work Hours');
+  // PER COMPANY SHEETS
+  Object.entries(grouped).forEach(([company,rows])=>{
+    const ws=XLSX.utils.json_to_sheet(rows);
+    const safeName=company.substring(0,31);
+    XLSX.utils.book_append_sheet(wb,ws,safeName);
+  });
 
   XLSX.writeFile(wb,'work-hours.xlsx');
 }
 
-/* ========== RENDER ========== */
+/* ================= RENDER ================= */
 function render(){
   const cal=document.getElementById('calendar');
   cal.innerHTML='';
@@ -332,13 +368,15 @@ function render(){
       num.textContent=d;
       cell.appendChild(num);
 
-      (data[date]||[]).forEach(e=>{
-        const div=document.createElement('div');
-        div.className='entry';
-        div.style.background=colorForPlace(e.place);
-        div.textContent=`${e.place} ${e.start}-${e.end}`;
-        cell.appendChild(div);
-      });
+      (data[date]||[])
+        .filter(e=>!filterCompany || e.place===filterCompany)
+        .forEach(e=>{
+          const div=document.createElement('div');
+          div.className='entry';
+          div.style.background=colorForPlace(e.place);
+          div.textContent=`${e.place} ${e.start}-${e.end}`;
+          cell.appendChild(div);
+        });
 
       days.appendChild(cell);
     }
@@ -350,11 +388,13 @@ function render(){
   renderSummary();
 }
 
+/* ================= SUMMARY ================= */
 function renderSummary(){
   const totals={};
 
   Object.values(data).forEach(arr=>{
     arr.forEach(e=>{
+      if(filterCompany && e.place!==filterCompany) return;
       totals[e.place]=(totals[e.place]||0)+e.hours;
     });
   });
@@ -373,11 +413,14 @@ function renderSummary(){
   });
 }
 
+/* INIT */
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('./service-worker.js');
 }
 
+updateFilterOptions();
 render();
 </script>
+
 </body>
 </html>
