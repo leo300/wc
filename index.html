@@ -38,6 +38,7 @@ header{
   width:220px;
 }
 
+/* BUTTONS */
 button{
   padding:10px;
   border:none;
@@ -59,22 +60,45 @@ button{
   border-radius:14px;
 }
 
-.days{
+/* WEEK HEADER */
+.weekdays{
   display:grid;
-  grid-template-columns:repeat(7,1fr);
-  gap:6px;
+  grid-template-columns:40px repeat(7,1fr);
+  font-size:10px;
+  color:#94a3b8;
+  margin-bottom:6px;
+  text-align:center;
 }
 
+/* WEEK ROW */
+.week-row{
+  display:grid;
+  grid-template-columns:40px repeat(7,1fr);
+  gap:6px;
+  margin-bottom:6px;
+  align-items:stretch;
+}
+
+.week-number{
+  font-size:11px;
+  color:#94a3b8;
+  text-align:center;
+  padding-top:10px;
+}
+
+/* DAYS GRID */
 .day{
-  min-height:90px;
+  min-height:80px;
   background:rgba(255,255,255,.05);
   border-radius:12px;
   padding:6px;
   cursor:pointer;
+  touch-action:manipulation;
 }
 
 .day-number{
   font-weight:700;
+  font-size:12px;
 }
 
 .entry{
@@ -166,9 +190,9 @@ input{
 <div id="summary">
   <h3>Total Hours</h3>
   <div id="summaryList"></div>
-  <div class="footer">
-    © <span id="year"></span> Work Calendar App - LM | Built with ❤️
-</div>
+    <div class="footer">
+      © <span id="year"></span> Work Calendar App - LM | Built with ❤️
+    </div>
 </div>
 
 <!-- MODAL -->
@@ -222,6 +246,14 @@ function hours(s,e){
   return Math.max(0,(eh*60+em)-(sh*60+sm))/60;
 }
 
+/* WEEK NUMBER (ISO SIMPLE) */
+function getWeekNumber(d){
+  d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+}
+
 /* MODAL */
 function openModal(date){
   selectedDate=date;
@@ -232,35 +264,24 @@ function openModal(date){
   document.getElementById("placeInput").value="";
   document.getElementById("startInput").value="";
   document.getElementById("endInput").value="";
-
-  setTimeout(()=>{
-    document.getElementById("placeInput").focus();
-  },100);
 }
 
 function closeModal(){
   document.getElementById("modal").style.display="none";
 }
 
-/* SAFE TOUCH HANDLER */
-function attachTap(cell, date){
-
-  let startX=0, startY=0;
+/* TOUCH SAFE */
+function attachTap(cell,date){
+  let x=0,y=0;
 
   cell.addEventListener("touchstart",(e)=>{
     const t=e.touches[0];
-    startX=t.clientX;
-    startY=t.clientY;
+    x=t.clientX; y=t.clientY;
   },{passive:true});
 
   cell.addEventListener("touchend",(e)=>{
     const t=e.changedTouches[0];
-
-    const dx=Math.abs(t.clientX-startX);
-    const dy=Math.abs(t.clientY-startY);
-
-    if(dx>10 || dy>10) return; // scrolling ignore
-
+    if(Math.abs(t.clientX-x)>10 || Math.abs(t.clientY-y)>10) return;
     openModal(date);
   },{passive:true});
 
@@ -278,9 +299,7 @@ function saveEntry(){
   if(!data[selectedDate]) data[selectedDate]=[];
 
   data[selectedDate].push({
-    place,
-    start,
-    end,
+    place,start,end,
     hours:hours(start,end)
   });
 
@@ -399,38 +418,66 @@ function render(){
     title.textContent=month.toLocaleString("default",{month:"long",year:"numeric"});
     box.appendChild(title);
 
-    const grid=document.createElement("div");
-    grid.className="days";
-
     const start=(month.getDay()+6)%7;
-    for(let i=0;i<start;i++) grid.appendChild(document.createElement("div"));
-
     const days=new Date(year,m+1,0).getDate();
 
-    for(let d=1;d<=days;d++){
-      const date=`${year}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    let weekRow=document.createElement("div");
+    weekRow.className="weekdays";
+    weekRow.innerHTML="<div></div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>";
+    box.appendChild(weekRow);
 
-      const cell=document.createElement("div");
-      cell.className="day";
+    let grid=document.createElement("div");
+    let dayCounter=1;
 
-      attachTap(cell, date);
+    while(dayCounter<=days){
 
-      const num=document.createElement("div");
-      num.className="day-number";
-      num.textContent=d;
-      cell.appendChild(num);
+      let row=document.createElement("div");
+      row.className="week-row";
 
-      (data[date]||[])
-        .filter(e=>!filter || e.place===filter)
-        .forEach(e=>{
-          const div=document.createElement("div");
-          div.className="entry";
-          div.style.background=color(e.place);
-          div.textContent=`${e.place} ${e.start}-${e.end}`;
-          cell.appendChild(div);
-        });
+      const dateObj = new Date(year,m,dayCounter);
+      const weekNum = getWeekNumber(dateObj);
 
-      grid.appendChild(cell);
+      let w=document.createElement("div");
+      w.className="week-number";
+      w.textContent=weekNum;
+      row.appendChild(w);
+
+      for(let i=0;i<7;i++){
+        const currentDate=new Date(year,m,dayCounter);
+
+        const cell=document.createElement("div");
+        cell.className="day";
+
+        if(i<start && dayCounter===1){
+          cell.style.visibility="hidden";
+        } else if(dayCounter<=days){
+
+          const dateStr=`${year}-${String(m+1).padStart(2,"0")}-${String(dayCounter).padStart(2,"0")}`;
+
+          attachTap(cell,dateStr);
+
+          const num=document.createElement("div");
+          num.className="day-number";
+          num.textContent=dayCounter;
+          cell.appendChild(num);
+
+          (data[dateStr]||[])
+            .filter(e=>!filter || e.place===filter)
+            .forEach(e=>{
+              const div=document.createElement("div");
+              div.className="entry";
+              div.style.background=color(e.place);
+              div.textContent=`${e.place} ${e.start}-${e.end}`;
+              cell.appendChild(div);
+            });
+
+          dayCounter++;
+        }
+
+        row.appendChild(cell);
+      }
+
+      grid.appendChild(row);
     }
 
     box.appendChild(grid);
