@@ -38,7 +38,6 @@ header{
   width:220px;
 }
 
-/* BUTTONS */
 button{
   padding:10px;
   border:none;
@@ -85,7 +84,6 @@ button{
   border-radius:999px;
   color:#111;
   font-weight:700;
-  overflow:hidden;
 }
 
 /* SUMMARY */
@@ -106,13 +104,6 @@ button{
 .badge{
   width:10px;height:10px;border-radius:50%;
   display:inline-block;margin-right:6px;
-}
-  
-.footer{
-  text-align:center;
-  margin-top:12px;
-  font-size:12px;
-  color:#888;
 }
 
 /* MODAL */
@@ -168,9 +159,6 @@ input{
 <div id="summary">
   <h3>Total Hours</h3>
   <div id="summaryList"></div>
-  <div class="footer">
-    &copy; <span id="year"></span> Work Calendar App - LM | Built with ❤️
-</div>
 </div>
 
 <!-- MODAL -->
@@ -224,13 +212,11 @@ function hours(s,e){
   return Math.max(0,(eh*60+em)-(sh*60+sm))/60;
 }
 
-/* OPEN MODAL (FIX TOUCH) */
+/* MODAL */
 function openModal(date){
   selectedDate=date;
 
-  const modal=document.getElementById("modal");
-  modal.style.display="flex";
-
+  document.getElementById("modal").style.display="flex";
   document.getElementById("modalDate").textContent=date;
 
   document.getElementById("placeInput").value="";
@@ -239,11 +225,36 @@ function openModal(date){
 
   setTimeout(()=>{
     document.getElementById("placeInput").focus();
-  },150);
+  },100);
 }
 
 function closeModal(){
   document.getElementById("modal").style.display="none";
+}
+
+/* SAFE TOUCH HANDLER */
+function attachTap(cell, date){
+
+  let startX=0, startY=0;
+
+  cell.addEventListener("touchstart",(e)=>{
+    const t=e.touches[0];
+    startX=t.clientX;
+    startY=t.clientY;
+  },{passive:true});
+
+  cell.addEventListener("touchend",(e)=>{
+    const t=e.changedTouches[0];
+
+    const dx=Math.abs(t.clientX-startX);
+    const dy=Math.abs(t.clientY-startY);
+
+    if(dx>10 || dy>10) return; // scrolling ignore
+
+    openModal(date);
+  },{passive:true});
+
+  cell.addEventListener("click",()=>openModal(date));
 }
 
 /* SAVE ENTRY */
@@ -268,7 +279,7 @@ function saveEntry(){
   render();
 }
 
-/* DELETE DAY */
+/* DELETE */
 function deleteDay(){
   delete data[selectedDate];
   save();
@@ -392,32 +403,7 @@ function render(){
       const cell=document.createElement("div");
       cell.className="day";
 
-      /* ✅ TOUCH FIX */
-      let startX = 0;
-      let startY = 0;
-      
-      function addTouchSafeClick(cell, date){
-      
-        cell.addEventListener("touchstart", (e)=>{
-          const t = e.touches[0];
-          startX = t.clientX;
-          startY = t.clientY;
-        });
-      
-        cell.addEventListener("touchend", (e)=>{
-          const t = e.changedTouches[0];
-      
-          const dx = Math.abs(t.clientX - startX);
-          const dy = Math.abs(t.clientY - startY);
-      
-          // 👉 if user is scrolling → ignore
-          if(dx > 12 || dy > 12) return;
-      
-          openModal(date);
-        });
-      
-        cell.addEventListener("click", ()=>openModal(date));
-      }
+      attachTap(cell, date);
 
       const num=document.createElement("div");
       num.className="day-number";
@@ -465,8 +451,6 @@ function renderSummary(){
     list.appendChild(div);
   });
 }
-
-document.getElementById("year").textContent = new Date().getFullYear();
 
 /* INIT */
 updateFilter();
