@@ -9,6 +9,7 @@
 
 <style>
 *{box-sizing:border-box}
+
 body{
   margin:0;
   font-family:system-ui;
@@ -16,13 +17,16 @@ body{
   color:#fff;
 }
 
+/* HEADER */
 header{
-  position:sticky;top:0;
+  position:sticky;
+  top:0;
   background:#0f172a;
   padding:16px;
   display:flex;
   flex-direction:column;
   gap:10px;
+  z-index:10;
 }
 
 #companyFilter{
@@ -34,6 +38,7 @@ header{
   width:220px;
 }
 
+/* BUTTONS */
 button{
   padding:10px;
   border:none;
@@ -45,6 +50,7 @@ button{
 .export{background:#3b82f6;color:#fff}
 .import{background:#f59e0b;color:#111;margin-left:8px}
 
+/* CALENDAR */
 #calendar{padding:12px}
 
 .month{
@@ -68,7 +74,9 @@ button{
   cursor:pointer;
 }
 
-.day-number{font-weight:700}
+.day-number{
+  font-weight:700;
+}
 
 .entry{
   font-size:.65rem;
@@ -77,8 +85,10 @@ button{
   border-radius:999px;
   color:#111;
   font-weight:700;
+  overflow:hidden;
 }
 
+/* SUMMARY */
 #summary{
   position:sticky;
   bottom:0;
@@ -97,6 +107,36 @@ button{
   width:10px;height:10px;border-radius:50%;
   display:inline-block;margin-right:6px;
 }
+
+/* MODAL */
+#modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.7);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+  padding:16px;
+}
+
+.modal-content{
+  background:#111827;
+  padding:20px;
+  border-radius:16px;
+  width:100%;
+  max-width:420px;
+}
+
+input{
+  width:100%;
+  padding:10px;
+  margin:6px 0 10px;
+  border-radius:10px;
+  border:none;
+  background:#1f2937;
+  color:#fff;
+}
 </style>
 </head>
 
@@ -110,8 +150,8 @@ button{
   </select>
 
   <div>
-    <button class="export" onclick="exportExcel()">Export Excel</button>
-    <button class="import" onclick="document.getElementById('file').click()">Import Excel</button>
+    <button class="export" onclick="exportExcel()">Export</button>
+    <button class="import" onclick="document.getElementById('file').click()">Import</button>
     <input type="file" id="file" hidden onchange="importExcel(event)">
   </div>
 </header>
@@ -123,35 +163,133 @@ button{
   <div id="summaryList"></div>
 </div>
 
-<script>
-let data = JSON.parse(localStorage.getItem("work-data") || "{}");
-let filter = "";
+<!-- MODAL -->
+<div id="modal">
+  <div class="modal-content">
+    <h3 id="modalDate"></h3>
 
+    <label>Company</label>
+    <input id="placeInput">
+
+    <label>Start</label>
+    <input id="startInput" type="time">
+
+    <label>End</label>
+    <input id="endInput" type="time">
+
+    <button onclick="saveEntry()" style="background:#22c55e;color:#fff">Add</button>
+    <button onclick="deleteDay()" style="background:#ef4444;color:#fff">Clear</button>
+    <button onclick="closeModal()" style="background:#334155;color:#fff">Close</button>
+  </div>
+</div>
+
+<script>
+
+let data = JSON.parse(localStorage.getItem("work-data") || "{}");
+let selectedDate="";
+let filter="";
+
+/* SAVE */
 function save(){
   localStorage.setItem("work-data", JSON.stringify(data));
 }
 
-/* ================= FILTER ================= */
+/* FILTER */
 function setFilter(v){
-  filter = v;
+  filter=v;
   render();
 }
 
-/* ================= COLOR ================= */
+/* COLOR */
 function color(p){
   let h=0;
   for(let i=0;i<p.length;i++) h=p.charCodeAt(i)+((h<<5)-h);
   return `hsl(${Math.abs(h)%360} 70% 60%)`;
 }
 
-/* ================= HOURS ================= */
+/* HOURS */
 function hours(s,e){
   const [sh,sm]=s.split(":").map(Number);
   const [eh,em]=e.split(":").map(Number);
   return Math.max(0,(eh*60+em)-(sh*60+sm))/60;
 }
 
-/* ================= IMPORT EXCEL ================= */
+/* OPEN MODAL (FIX TOUCH) */
+function openModal(date){
+  selectedDate=date;
+
+  const modal=document.getElementById("modal");
+  modal.style.display="flex";
+
+  document.getElementById("modalDate").textContent=date;
+
+  document.getElementById("placeInput").value="";
+  document.getElementById("startInput").value="";
+  document.getElementById("endInput").value="";
+
+  setTimeout(()=>{
+    document.getElementById("placeInput").focus();
+  },150);
+}
+
+function closeModal(){
+  document.getElementById("modal").style.display="none";
+}
+
+/* SAVE ENTRY */
+function saveEntry(){
+  const place=document.getElementById("placeInput").value.trim();
+  const start=document.getElementById("startInput").value;
+  const end=document.getElementById("endInput").value;
+
+  if(!place||!start||!end) return alert("Fill all fields");
+
+  if(!data[selectedDate]) data[selectedDate]=[];
+
+  data[selectedDate].push({
+    place,
+    start,
+    end,
+    hours:hours(start,end)
+  });
+
+  save();
+  updateFilter();
+  render();
+}
+
+/* DELETE DAY */
+function deleteDay(){
+  delete data[selectedDate];
+  save();
+  updateFilter();
+  render();
+  closeModal();
+}
+
+/* FILTER LIST */
+function updateFilter(){
+  const sel=document.getElementById("companyFilter");
+  const set=new Set();
+
+  Object.values(data).forEach(arr=>{
+    arr.forEach(e=>set.add(e.place));
+  });
+
+  const cur=sel.value;
+  sel.innerHTML=`<option value="">All Companies</option>`;
+
+  [...set].sort().forEach(c=>{
+    const o=document.createElement("option");
+    o.value=c;
+    o.textContent=c;
+    sel.appendChild(o);
+  });
+
+  sel.value=cur;
+}
+
+/* IMPORT */
 function importExcel(e){
   const file=e.target.files[0];
   const reader=new FileReader();
@@ -164,10 +302,10 @@ function importExcel(e){
     data={};
 
     rows.forEach(r=>{
-      const date=r.Date;
-      if(!data[date]) data[date]=[];
+      const d=r.Date;
+      if(!data[d]) data[d]=[];
 
-      data[date].push({
+      data[d].push({
         place:r.Company,
         start:r.Start,
         end:r.End,
@@ -183,7 +321,7 @@ function importExcel(e){
   reader.readAsBinaryString(file);
 }
 
-/* ================= EXPORT ================= */
+/* EXPORT */
 function exportExcel(){
   const wb=XLSX.utils.book_new();
   const grouped={};
@@ -213,29 +351,7 @@ function exportExcel(){
   XLSX.writeFile(wb,"work-hours.xlsx");
 }
 
-/* ================= FILTER OPTIONS ================= */
-function updateFilter(){
-  const sel=document.getElementById("companyFilter");
-  const set=new Set();
-
-  Object.values(data).forEach(arr=>{
-    arr.forEach(e=>set.add(e.place));
-  });
-
-  const cur=sel.value;
-  sel.innerHTML=`<option value="">All Companies</option>`;
-
-  [...set].sort().forEach(c=>{
-    const o=document.createElement("option");
-    o.value=c;
-    o.textContent=c;
-    sel.appendChild(o);
-  });
-
-  sel.value=cur;
-}
-
-/* ================= RENDER (FIXED FILTER BUG) ================= */
+/* RENDER */
 function render(){
   const cal=document.getElementById("calendar");
   cal.innerHTML="";
@@ -266,12 +382,15 @@ function render(){
       const cell=document.createElement("div");
       cell.className="day";
 
+      /* ✅ TOUCH FIX */
+      cell.addEventListener("click",()=>openModal(date));
+      cell.addEventListener("touchstart",()=>openModal(date));
+
       const num=document.createElement("div");
       num.className="day-number";
       num.textContent=d;
       cell.appendChild(num);
 
-      // ✅ ONLY ONE LOOP (FIXED BUG)
       (data[date]||[])
         .filter(e=>!filter || e.place===filter)
         .forEach(e=>{
@@ -292,7 +411,7 @@ function render(){
   renderSummary();
 }
 
-/* ================= SUMMARY ================= */
+/* SUMMARY */
 function renderSummary(){
   const totals={};
 
@@ -309,10 +428,7 @@ function renderSummary(){
   Object.entries(totals).forEach(([k,v])=>{
     const div=document.createElement("div");
     div.className="summary-item";
-    div.innerHTML=`
-      <div><span class="badge" style="background:${color(k)}"></span>${k}</div>
-      <strong>${v.toFixed(1)}h</strong>
-    `;
+    div.innerHTML=`<div><span class="badge" style="background:${color(k)}"></span>${k}</div><strong>${v.toFixed(1)}h</strong>`;
     list.appendChild(div);
   });
 }
@@ -320,7 +436,7 @@ function renderSummary(){
 /* INIT */
 updateFilter();
 render();
-</script>
 
+</script>
 </body>
 </html>
