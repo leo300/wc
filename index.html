@@ -4,8 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Work Calendar</title>
+
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f172a">
+
+<!-- SheetJS (Excel export) -->
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
 <style>
 *{box-sizing:border-box}
@@ -23,6 +27,7 @@ header{
   border-bottom:1px solid rgba(255,255,255,.1);
 }
 h1{margin:0;font-size:1.4rem}
+
 #calendar{padding:12px}
 
 .month{
@@ -53,7 +58,6 @@ h1{margin:0;font-size:1.4rem}
   border-radius:14px;
   padding:6px;
   cursor:pointer;
-  overflow:hidden;
 }
 .day:hover{background:rgba(255,255,255,.1)}
 .day.empty{visibility:hidden}
@@ -79,6 +83,25 @@ h1{margin:0;font-size:1.4rem}
   backdrop-filter:blur(10px);
   border-top:1px solid rgba(255,255,255,.1);
   padding:16px;
+}
+
+.summary-top{
+  display:flex;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+button{
+  padding:10px 12px;
+  border:none;
+  border-radius:10px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.export{
+  background:#3b82f6;
+  color:white;
 }
 
 .summary-item{
@@ -118,11 +141,6 @@ input{
   display:flex;gap:10px;margin-top:18px;
 }
 
-button{
-  flex:1;padding:12px;border:none;border-radius:12px;
-  font-weight:700;font-size:15px;cursor:pointer;
-}
-
 .save{background:#22c55e;color:#fff}
 .delete{background:#ef4444;color:#fff}
 .cancel{background:#334155;color:#fff}
@@ -151,6 +169,10 @@ button{
 <div id="calendar"></div>
 
 <div id="summary">
+  <div class="summary-top">
+    <button class="export" onclick="exportExcel()">📤 Export Excel</button>
+  </div>
+
   <h3 style="margin-top:0">Total Hours</h3>
   <div id="summaryList"></div>
 </div>
@@ -159,10 +181,8 @@ button{
   <div class="modal-content">
     <h3 id="modalDate"></h3>
 
-    <div id="existingList" class="small-list"></div>
-
     <label>Workplace</label>
-    <input id="placeInput" placeholder="Company / Job">
+    <input id="placeInput">
 
     <label>Start time</label>
     <input id="startInput" type="time">
@@ -195,22 +215,15 @@ function colorForPlace(place){
 }
 
 function calcHours(start,end){
-  if(!start || !end) return 0;
   const [sh,sm]=start.split(':').map(Number);
   const [eh,em]=end.split(':').map(Number);
-  return Math.max(0,(eh*60+em - (sh*60+sm))/60);
+  return Math.max(0,(eh*60+em)-(sh*60+sm))/60;
 }
 
 function openModal(date){
   selectedDate=date;
   document.getElementById('modal').style.display='flex';
   document.getElementById('modalDate').textContent=new Date(date).toDateString();
-
-  document.getElementById('placeInput').value='';
-  document.getElementById('startInput').value='';
-  document.getElementById('endInput').value='';
-
-  renderModalList();
 }
 
 function closeModal(){
@@ -222,23 +235,17 @@ function saveEntry(){
   const start=document.getElementById('startInput').value;
   const end=document.getElementById('endInput').value;
 
-  if(!place || !start || !end){
-    alert('Fill all fields');
-    return;
-  }
+  if(!place||!start||!end) return alert('Fill all fields');
 
   if(!data[selectedDate]) data[selectedDate]=[];
 
   data[selectedDate].push({
-    place,
-    start,
-    end,
+    place,start,end,
     hours:calcHours(start,end)
   });
 
   saveData();
   render();
-  renderModalList();
 }
 
 function deleteDay(){
@@ -248,30 +255,44 @@ function deleteDay(){
   render();
 }
 
-function renderModalList(){
-  const list=document.getElementById('existingList');
-  list.innerHTML='';
+/* ========== EXPORT EXCEL ========== */
+function exportExcel(){
+  const rows=[];
 
-  const arr=data[selectedDate] || [];
-  if(arr.length===0){
-    list.innerHTML='<div style="color:#94a3b8">No entries yet</div>';
-    return;
-  }
-
-  arr.forEach(e=>{
-    const div=document.createElement('div');
-    div.className='small-item';
-    div.textContent=`${e.place} | ${e.start}-${e.end} (${e.hours.toFixed(1)}h)`;
-    list.appendChild(div);
+  Object.entries(data).forEach(([date,entries])=>{
+    entries.forEach(e=>{
+      rows.push({
+        Date:date,
+        Workplace:e.place,
+        Start:e.start,
+        End:e.end,
+        Hours:e.hours.toFixed(2)
+      });
+    });
   });
+
+  const ws=XLSX.utils.json_to_sheet(rows);
+
+  ws['!cols']=[
+    {wch:12},
+    {wch:20},
+    {wch:10},
+    {wch:10},
+    {wch:10}
+  ];
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Work Hours');
+
+  XLSX.writeFile(wb,'work-hours.xlsx');
 }
 
+/* ========== RENDER ========== */
 function render(){
   const cal=document.getElementById('calendar');
   cal.innerHTML='';
 
-  const now=new Date();
-  const year=now.getFullYear();
+  const year=new Date().getFullYear();
 
   for(let m=0;m<12;m++){
     const month=new Date(year,m,1);
@@ -283,43 +304,31 @@ function render(){
     title.textContent=month.toLocaleString('default',{month:'long',year:'numeric'});
     monthEl.appendChild(title);
 
-    const weekdays=document.createElement('div');
-    weekdays.className='weekdays';
-    ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
-      .forEach(d=>{
-        const el=document.createElement('div');
-        el.textContent=d;
-        weekdays.appendChild(el);
-      });
-
-    monthEl.appendChild(weekdays);
-
     const days=document.createElement('div');
     days.className='days';
 
-    let firstDay=(month.getDay()+6)%7;
-    for(let i=0;i<firstDay;i++){
-      const empty=document.createElement('div');
-      empty.className='day empty';
-      days.appendChild(empty);
+    let first=(month.getDay()+6)%7;
+    for(let i=0;i<first;i++){
+      const d=document.createElement('div');
+      d.className='day empty';
+      days.appendChild(d);
     }
 
     const daysInMonth=new Date(year,m+1,0).getDate();
 
     for(let d=1;d<=daysInMonth;d++){
-      const dateStr=`${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const date=`${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 
       const cell=document.createElement('div');
       cell.className='day';
-      cell.onclick=()=>openModal(dateStr);
+      cell.onclick=()=>openModal(date);
 
       const num=document.createElement('div');
       num.className='day-number';
       num.textContent=d;
       cell.appendChild(num);
 
-      const entries=data[dateStr] || [];
-      entries.forEach(e=>{
+      (data[date]||[]).forEach(e=>{
         const div=document.createElement('div');
         div.className='entry';
         div.style.background=colorForPlace(e.place);
@@ -340,8 +349,8 @@ function render(){
 function renderSummary(){
   const totals={};
 
-  Object.entries(data).forEach(([date,entries])=>{
-    entries.forEach(e=>{
+  Object.values(data).forEach(arr=>{
+    arr.forEach(e=>{
       totals[e.place]=(totals[e.place]||0)+e.hours;
     });
   });
@@ -349,29 +358,16 @@ function renderSummary(){
   const list=document.getElementById('summaryList');
   list.innerHTML='';
 
-  Object.entries(totals)
-    .sort((a,b)=>b[1]-a[1])
-    .forEach(([place,hours])=>{
-      const row=document.createElement('div');
-      row.className='summary-item';
-      row.innerHTML=`
-        <div>
-          <span class="badge" style="background:${colorForPlace(place)}"></span>
-          ${place}
-        </div>
-        <strong>${hours.toFixed(1)} h</strong>
-      `;
-      list.appendChild(row);
-    });
-
-  if(Object.keys(totals).length===0){
-    list.innerHTML='<div style="color:#94a3b8">No work hours registered yet.</div>';
-  }
+  Object.entries(totals).forEach(([p,h])=>{
+    const div=document.createElement('div');
+    div.className='summary-item';
+    div.innerHTML=`
+      <div><span class="badge" style="background:${colorForPlace(p)}"></span>${p}</div>
+      <strong>${h.toFixed(1)} h</strong>
+    `;
+    list.appendChild(div);
+  });
 }
-
-window.addEventListener('click',e=>{
-  if(e.target.id==='modal') closeModal();
-});
 
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('./service-worker.js');
