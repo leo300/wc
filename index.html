@@ -47,6 +47,11 @@ button{
   font-weight:700;
 }
 
+input {
+  font-size:16px;
+  -webkit-text-size-adjust: 100%;
+}
+
 .export{background:#3b82f6;color:#fff}
 .import{background:#f59e0b;color:#111;margin-left:8px}
 
@@ -254,6 +259,11 @@ function getWeekNumber(d){
   return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
 }
 
+function getTodayString(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
 /* MODAL */
 function openModal(date){
   selectedDate=date;
@@ -407,6 +417,7 @@ function render(){
   cal.innerHTML="";
 
   const year=new Date().getFullYear();
+  const today=getToday();
 
   for(let m=0;m<12;m++){
     const month=new Date(year,m,1);
@@ -453,6 +464,11 @@ function render(){
         } else if(dayCounter<=days){
 
           const dateStr=`${year}-${String(m+1).padStart(2,"0")}-${String(dayCounter).padStart(2,"0")}`;
+          
+          if(dateStr === today){
+            cell.style.border = "2px solid #22c55e";
+            cell.style.background = "rgba(34,197,94,0.15)";
+          }
 
           attachTap(cell,dateStr);
 
