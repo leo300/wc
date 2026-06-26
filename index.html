@@ -393,8 +393,31 @@ function render(){
       cell.className="day";
 
       /* ✅ TOUCH FIX */
-      cell.addEventListener("click",()=>openModal(date));
-      cell.addEventListener("touchstart",()=>openModal(date));
+      let startX = 0;
+      let startY = 0;
+      
+      function addTouchSafeClick(cell, date){
+      
+        cell.addEventListener("touchstart", (e)=>{
+          const t = e.touches[0];
+          startX = t.clientX;
+          startY = t.clientY;
+        });
+      
+        cell.addEventListener("touchend", (e)=>{
+          const t = e.changedTouches[0];
+      
+          const dx = Math.abs(t.clientX - startX);
+          const dy = Math.abs(t.clientY - startY);
+      
+          // 👉 if user is scrolling → ignore
+          if(dx > 12 || dy > 12) return;
+      
+          openModal(date);
+        });
+      
+        cell.addEventListener("click", ()=>openModal(date));
+      }
 
       const num=document.createElement("div");
       num.className="day-number";
