@@ -8,48 +8,45 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f172a">
 
-<!-- SheetJS (Excel export) -->
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
 <style>
 *{box-sizing:border-box}
 body{
   margin:0;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  font-family:system-ui;
   background:#0f172a;
   color:#fff;
 }
+
 header{
-  position:sticky;top:0;z-index:10;
+  position:sticky;top:0;
   background:rgba(15,23,42,.9);
-  backdrop-filter:blur(10px);
   padding:16px;
-  border-bottom:1px solid rgba(255,255,255,.1);
   display:flex;
   flex-direction:column;
   gap:10px;
 }
-h1{margin:0;font-size:1.4rem}
+
+h1{margin:0;font-size:1.3rem}
 
 #companyFilter{
   padding:10px;
   border-radius:10px;
-  border:none;
   background:#1f2937;
   color:#fff;
-  width:200px;
+  border:none;
+  width:220px;
 }
 
 #calendar{padding:12px}
 
 .month{
   background:rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:20px;
+  border-radius:16px;
   padding:12px;
-  margin-bottom:18px;
+  margin-bottom:16px;
 }
-.month h2{margin:0 0 12px}
 
 .days{
   display:grid;
@@ -60,101 +57,51 @@ h1{margin:0;font-size:1.4rem}
 .day{
   min-height:90px;
   background:rgba(255,255,255,.05);
-  border-radius:14px;
+  border-radius:12px;
   padding:6px;
   cursor:pointer;
 }
-.day:hover{background:rgba(255,255,255,.1)}
-.day.empty{visibility:hidden}
 
-.day-number{font-weight:700;font-size:.9rem}
+.day-number{font-weight:700}
 
 .entry{
   font-size:.65rem;
-  margin-top:4px;
+  margin-top:3px;
   padding:2px 6px;
   border-radius:999px;
-  color:#111827;
+  color:#111;
   font-weight:700;
-  margin-bottom:3px;
   white-space:nowrap;
   overflow:hidden;
-  text-overflow:ellipsis;
 }
 
 #summary{
   position:sticky;bottom:0;
-  background:rgba(15,23,42,.95);
-  backdrop-filter:blur(10px);
+  background:#0f172a;
+  padding:14px;
   border-top:1px solid rgba(255,255,255,.1);
-  padding:16px;
-}
-
-.summary-top{
-  display:flex;
-  gap:10px;
-  margin-bottom:10px;
 }
 
 button{
-  padding:10px 12px;
+  padding:10px;
   border:none;
   border-radius:10px;
-  font-weight:700;
   cursor:pointer;
+  font-weight:700;
 }
 
-.export{
-  background:#3b82f6;
-  color:white;
-}
+.export{background:#3b82f6;color:#fff}
+.import{background:#f59e0b;color:#111;margin-left:8px}
 
 .summary-item{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);
+  display:flex;
+  justify-content:space-between;
+  padding:6px 0;
 }
-.summary-item:last-child{border-bottom:none}
 
 .badge{
-  width:12px;height:12px;border-radius:50%;
-  display:inline-block;margin-right:8px;
-}
-
-#modal{
-  position:fixed;inset:0;
-  background:rgba(0,0,0,.6);
-  display:none;
-  align-items:center;justify-content:center;
-  padding:16px;z-index:100;
-}
-
-.modal-content{
-  width:100%;max-width:460px;
-  background:#111827;
-  border-radius:20px;
-  padding:20px;
-}
-
-label{display:block;margin-top:12px;margin-bottom:6px}
-
-input{
-  width:100%;padding:12px;border:none;border-radius:12px;
-  background:#1f2937;color:#fff;font-size:16px;
-}
-
-.buttons{
-  display:flex;gap:10px;margin-top:18px;
-}
-
-.save{background:#22c55e;color:#fff}
-.delete{background:#ef4444;color:#fff}
-.cancel{background:#334155;color:#fff}
-
-.footer{
-  text-align:center;
-  margin-top:20px;
-  font-size:12px;
-  color:#888;
+  width:10px;height:10px;border-radius:50%;
+  display:inline-block;margin-right:6px;
 }
 </style>
 </head>
@@ -164,7 +111,7 @@ input{
 <header>
   <h1>📅 Work Calendar</h1>
 
-  <select id="companyFilter" onchange="render()">
+  <select id="companyFilter" onchange="setFilter(this.value)">
     <option value="">All Companies</option>
   </select>
 </header>
@@ -172,159 +119,130 @@ input{
 <div id="calendar"></div>
 
 <div id="summary">
-  <div class="summary-top">
-    <button class="export" onclick="exportExcel()">📤 Export Excel</button>
-  </div>
+  <button class="export" onclick="exportExcel()">Export Excel</button>
+  <button class="import" onclick="document.getElementById('fileInput').click()">Import Excel</button>
+  <input type="file" id="fileInput" style="display:none" onchange="importExcel(event)">
 
-  <h3 style="margin-top:0">Total Hours</h3>
+  <h3>Total Hours</h3>
   <div id="summaryList"></div>
-
-  <div class="footer">
-    &copy; <span id="currentYear"></span> Work Calendar App - LM
-  </div>
-</div>
-
-<div id="modal">
-  <div class="modal-content">
-    <h3 id="modalDate"></h3>
-
-    <label>Company</label>
-    <input id="placeInput">
-
-    <label>Start time</label>
-    <input id="startInput" type="time">
-
-    <label>End time</label>
-    <input id="endInput" type="time">
-
-    <div class="buttons">
-      <button class="save" onclick="saveEntry()">Add</button>
-      <button class="delete" onclick="deleteDay()">Clear</button>
-      <button class="cancel" onclick="closeModal()">Close</button>
-    </div>
-  </div>
 </div>
 
 <script>
 const storageKey='work-calendar-data';
 let data = JSON.parse(localStorage.getItem(storageKey) || '{}');
-let selectedDate='';
 let filterCompany='';
-
-document.getElementById("currentYear").textContent = new Date().getFullYear();
 
 function saveData(){
   localStorage.setItem(storageKey, JSON.stringify(data));
 }
 
-function colorForPlace(place){
-  let hash=0;
-  for(let i=0;i<place.length;i++)
-    hash=place.charCodeAt(i)+((hash<<5)-hash);
-  return `hsl(${Math.abs(hash)%360} 75% 65%)`;
+/* ================= FILTER FIX ================= */
+function setFilter(value){
+  filterCompany = value;   // 🔥 FIXED
+  render();
 }
 
-function calcHours(start,end){
-  const [sh,sm]=start.split(':').map(Number);
-  const [eh,em]=end.split(':').map(Number);
+/* ================= COLORS ================= */
+function color(place){
+  let h=0;
+  for(let i=0;i<place.length;i++) h=place.charCodeAt(i)+((h<<5)-h);
+  return `hsl(${Math.abs(h)%360} 70% 60%)`;
+}
+
+/* ================= HOURS ================= */
+function hours(s,e){
+  const [sh,sm]=s.split(':').map(Number);
+  const [eh,em]=e.split(':').map(Number);
   return Math.max(0,(eh*60+em)-(sh*60+sm))/60;
-}
-
-function openModal(date){
-  selectedDate=date;
-  document.getElementById('modal').style.display='flex';
-  document.getElementById('modalDate').textContent=new Date(date).toDateString();
-}
-
-function closeModal(){
-  document.getElementById('modal').style.display='none';
-}
-
-function saveEntry(){
-  const place=document.getElementById('placeInput').value.trim();
-  const start=document.getElementById('startInput').value;
-  const end=document.getElementById('endInput').value;
-
-  if(!place||!start||!end) return alert('Fill all fields');
-
-  if(!data[selectedDate]) data[selectedDate]=[];
-
-  data[selectedDate].push({
-    place,start,end,
-    hours:calcHours(start,end)
-  });
-
-  saveData();
-  updateFilterOptions();
-  render();
-}
-
-function deleteDay(){
-  delete data[selectedDate];
-  saveData();
-  closeModal();
-  updateFilterOptions();
-  render();
-}
-
-/* ================= FILTER ================= */
-function updateFilterOptions(){
-  const select=document.getElementById("companyFilter");
-
-  const companies=new Set();
-  Object.values(data).forEach(arr=>{
-    arr.forEach(e=>companies.add(e.place));
-  });
-
-  const current=select.value;
-
-  select.innerHTML=`<option value="">All Companies</option>`;
-  [...companies].sort().forEach(c=>{
-    const opt=document.createElement("option");
-    opt.value=c;
-    opt.textContent=c;
-    select.appendChild(opt);
-  });
-
-  select.value=current;
 }
 
 /* ================= EXPORT ================= */
 function exportExcel(){
   const wb=XLSX.utils.book_new();
-
   const grouped={};
 
-  Object.entries(data).forEach(([date,entries])=>{
-    entries.forEach(e=>{
+  Object.entries(data).forEach(([date,arr])=>{
+    arr.forEach(e=>{
       if(!grouped[e.place]) grouped[e.place]=[];
       grouped[e.place].push({
         Date:date,
         Company:e.place,
         Start:e.start,
         End:e.end,
-        Hours:e.hours.toFixed(2)
+        Hours:e.hours
       });
     });
   });
 
-  // ALL SHEET
-  const allRows=[];
+  // ALL
+  const all=[];
+  Object.values(grouped).forEach(v=>all.push(...v));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(all),'All');
+
+  // COMPANY SHEETS
   Object.entries(grouped).forEach(([k,v])=>{
-    allRows.push(...v);
-  });
-
-  const wsAll=XLSX.utils.json_to_sheet(allRows);
-  XLSX.utils.book_append_sheet(wb,wsAll,'All');
-
-  // PER COMPANY SHEETS
-  Object.entries(grouped).forEach(([company,rows])=>{
-    const ws=XLSX.utils.json_to_sheet(rows);
-    const safeName=company.substring(0,31);
-    XLSX.utils.book_append_sheet(wb,ws,safeName);
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(v),k.slice(0,31));
   });
 
   XLSX.writeFile(wb,'work-hours.xlsx');
+}
+
+/* ================= IMPORT (NEW) ================= */
+function importExcel(e){
+  const file=e.target.files[0];
+  const reader=new FileReader();
+
+  reader.onload=(evt)=>{
+    const wb=XLSX.read(evt.target.result,{type:'binary'});
+    const sheet=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(sheet);
+
+    data={};
+
+    rows.forEach(r=>{
+      const date=r.Date;
+      if(!data[date]) data[date]=[];
+
+      const start=r.Start;
+      const end=r.End;
+      const place=r.Company || r.Workplace;
+
+      data[date].push({
+        place,
+        start,
+        end,
+        hours: r.Hours ? Number(r.Hours) : hours(start,end)
+      });
+    });
+
+    saveData();
+    updateFilter();
+    render();
+  };
+
+  reader.readAsBinaryString(file);
+}
+
+/* ================= FILTER OPTIONS ================= */
+function updateFilter(){
+  const sel=document.getElementById('companyFilter');
+  const set=new Set();
+
+  Object.values(data).forEach(arr=>{
+    arr.forEach(e=>set.add(e.place));
+  });
+
+  const current=sel.value;
+  sel.innerHTML=`<option value="">All Companies</option>`;
+
+  [...set].sort().forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c;
+    o.textContent=c;
+    sel.appendChild(o);
+  });
+
+  sel.value=current;
 }
 
 /* ================= RENDER ================= */
@@ -337,31 +255,26 @@ function render(){
   for(let m=0;m<12;m++){
     const month=new Date(year,m,1);
 
-    const monthEl=document.createElement('div');
-    monthEl.className='month';
+    const box=document.createElement('div');
+    box.className='month';
 
-    const title=document.createElement('h2');
+    const title=document.createElement('h3');
     title.textContent=month.toLocaleString('default',{month:'long',year:'numeric'});
-    monthEl.appendChild(title);
+    box.appendChild(title);
 
-    const days=document.createElement('div');
-    days.className='days';
+    const grid=document.createElement('div');
+    grid.className='days';
 
-    let first=(month.getDay()+6)%7;
-    for(let i=0;i<first;i++){
-      const d=document.createElement('div');
-      d.className='day empty';
-      days.appendChild(d);
-    }
+    let start=(month.getDay()+6)%7;
+    for(let i=0;i<start;i++) grid.appendChild(document.createElement('div')).className='day empty';
 
-    const daysInMonth=new Date(year,m+1,0).getDate();
+    const days=new Date(year,m+1,0).getDate();
 
-    for(let d=1;d<=daysInMonth;d++){
+    for(let d=1;d<=days;d++){
       const date=`${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 
       const cell=document.createElement('div');
       cell.className='day';
-      cell.onclick=()=>openModal(date);
 
       const num=document.createElement('div');
       num.className='day-number';
@@ -373,16 +286,16 @@ function render(){
         .forEach(e=>{
           const div=document.createElement('div');
           div.className='entry';
-          div.style.background=colorForPlace(e.place);
+          div.style.background=color(e.place);
           div.textContent=`${e.place} ${e.start}-${e.end}`;
           cell.appendChild(div);
         });
 
-      days.appendChild(cell);
+      grid.appendChild(cell);
     }
 
-    monthEl.appendChild(days);
-    cal.appendChild(monthEl);
+    box.appendChild(grid);
+    cal.appendChild(box);
   }
 
   renderSummary();
@@ -402,23 +315,19 @@ function renderSummary(){
   const list=document.getElementById('summaryList');
   list.innerHTML='';
 
-  Object.entries(totals).forEach(([p,h])=>{
+  Object.entries(totals).forEach(([k,v])=>{
     const div=document.createElement('div');
     div.className='summary-item';
     div.innerHTML=`
-      <div><span class="badge" style="background:${colorForPlace(p)}"></span>${p}</div>
-      <strong>${h.toFixed(1)} h</strong>
+      <div><span class="badge" style="background:${color(k)}"></span>${k}</div>
+      <strong>${v.toFixed(1)} h</strong>
     `;
     list.appendChild(div);
   });
 }
 
 /* INIT */
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./service-worker.js');
-}
-
-updateFilterOptions();
+updateFilter();
 render();
 </script>
 
