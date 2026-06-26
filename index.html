@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Work Calendar</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f172a">
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  background:#0f172a;
+  color:#fff;
+}
+header{
+  position:sticky;top:0;z-index:10;
+  background:rgba(15,23,42,.9);
+  backdrop-filter:blur(10px);
+  padding:16px;
+  border-bottom:1px solid rgba(255,255,255,.1);
+}
+h1{margin:0;font-size:1.4rem}
+#calendar{padding:12px}
+.month{
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:20px;
+  padding:12px;
+  margin-bottom:18px;
+}
+.month h2{margin:0 0 12px}
+.weekdays,.days{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:6px;
+}
+.weekdays div{
+  text-align:center;
+  color:#94a3b8;
+  font-size:.8rem;
+  padding:4px 0;
+}
+.day{
+  min-height:74px;
+  background:rgba(255,255,255,.05);
+  border-radius:14px;
+  padding:6px;
+  cursor:pointer;
+  position:relative;
+  overflow:hidden;
+}
+.day:hover{background:rgba(255,255,255,.1)}
+.day.empty{visibility:hidden}
+.day-number{font-weight:700;font-size:.9rem}
+.entry{
+  font-size:.7rem;
+  margin-top:4px;
+  padding:2px 4px;
+  border-radius:999px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:#111827;
+  font-weight:700;
+}
+#summary{
+  position:sticky;bottom:0;
+  background:rgba(15,23,42,.95);
+  backdrop-filter:blur(10px);
+  border-top:1px solid rgba(255,255,255,.1);
+  padding:16px;
+}
+.summary-item{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);
+}
+.summary-item:last-child{border-bottom:none}
+.badge{
+  width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:8px;
+}
+#modal{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.6);
+  display:none;
+  align-items:center;justify-content:center;
+  padding:16px;z-index:100;
+}
+.modal-content{
+  width:100%;max-width:420px;
+  background:#111827;
+  border-radius:20px;
+  padding:20px;
+}
+label{display:block;margin-top:12px;margin-bottom:6px}
+input{
+  width:100%;padding:12px;border:none;border-radius:12px;
+  background:#1f2937;color:#fff;font-size:16px;
+}
+.buttons{
+  display:flex;gap:10px;margin-top:18px;
+}
+button{
+  flex:1;padding:12px;border:none;border-radius:12px;
+  font-weight:700;font-size:15px;cursor:pointer;
+}
+.save{background:#22c55e;color:#fff}
+.delete{background:#ef4444;color:#fff}
+.cancel{background:#334155;color:#fff}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📅 Work Calendar</h1>
+</header>
+
+<div id="calendar"></div>
+
+<div id="summary">
+  <h3 style="margin-top:0">Total Hours</h3>
+  <div id="summaryList"></div>
+</div>
+
+<div id="modal">
+  <div class="modal-content">
+    <h3 id="modalDate"></h3>
+    <label>Workplace</label>
+    <input id="placeInput" placeholder="e.g. Office, Store, Client">
+    <label>Hours worked</label>
+    <input id="hoursInput" type="number" min="0" step="0.5" placeholder="8">
+    <div class="buttons">
+      <button class="save" onclick="saveEntry()">Save</button>
+      <button class="delete" onclick="deleteEntry()">Delete</button>
+      <button class="cancel" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const storageKey='work-calendar-data';
+let data=JSON.parse(localStorage.getItem(storageKey)||'{}');
+let selectedDate='';
+
+function saveData(){
+  localStorage.setItem(storageKey,JSON.stringify(data));
+}
+
+function colorForPlace(place){
+  let hash=0;
+  for(let i=0;i<place.length;i++) hash=place.charCodeAt(i)+((hash<<5)-hash);
+  return `hsl(${Math.abs(hash)%360} 75% 65%)`;
+}
+
+function openModal(date){
+  selectedDate=date;
+  document.getElementById('modal').style.display='flex';
+  document.getElementById('modalDate').textContent=new Date(date).toDateString();
+  document.getElementById('placeInput').value=data[date]?.place||'';
+  document.getElementById('hoursInput').value=data[date]?.hours||'';
+}
+
+function closeModal(){
+  document.getElementById('modal').style.display='none';
+}
+
+function saveEntry(){
+  const place=document.getElementById('placeInput').value.trim();
+  const hours=parseFloat(document.getElementById('hoursInput').value||0);
+  if(!place || hours<=0){ alert('Enter workplace and hours'); return; }
+  data[selectedDate]={place,hours};
+  saveData();
+  closeModal();
+  render();
+}
+
+function deleteEntry(){
+  delete data[selectedDate];
+  saveData();
+  closeModal();
+  render();
+}
+
+function render(){
+  const cal=document.getElementById('calendar');
+  cal.innerHTML='';
+  const now=new Date();
+  const year=now.getFullYear();
+
+  for(let m=0;m<12;m++){
+    const month=new Date(year,m,1);
+    const monthEl=document.createElement('div');
+    monthEl.className='month';
+
+    const title=document.createElement('h2');
+    title.textContent=month.toLocaleString('default',{month:'long',year:'numeric'});
+    monthEl.appendChild(title);
+
+    const weekdays=document.createElement('div');
+    weekdays.className='weekdays';
+    ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d=>{
+      const el=document.createElement('div');
+      el.textContent=d;
+      weekdays.appendChild(el);
+    });
+    monthEl.appendChild(weekdays);
+
+    const days=document.createElement('div');
+    days.className='days';
+
+    let firstDay=(month.getDay()+6)%7;
+    for(let i=0;i<firstDay;i++){
+      const empty=document.createElement('div');
+      empty.className='day empty';
+      days.appendChild(empty);
+    }
+
+    const daysInMonth=new Date(year,m+1,0).getDate();
+
+    for(let d=1;d<=daysInMonth;d++){
+      const dateStr=`${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const cell=document.createElement('div');
+      cell.className='day';
+      cell.onclick=()=>openModal(dateStr);
+
+      const num=document.createElement('div');
+      num.className='day-number';
+      num.textContent=d;
+      cell.appendChild(num);
+
+      if(data[dateStr]){
+        const e=document.createElement('div');
+        e.className='entry';
+        e.style.background=colorForPlace(data[dateStr].place);
+        e.textContent=`${data[dateStr].place} • ${data[dateStr].hours}h`;
+        cell.appendChild(e);
+      }
+
+      days.appendChild(cell);
+    }
+
+    monthEl.appendChild(days);
+    cal.appendChild(monthEl);
+  }
+
+  renderSummary();
+}
+
+function renderSummary(){
+  const totals={};
+  const today=new Date().toISOString().slice(0,10);
+
+  Object.entries(data).forEach(([date,entry])=>{
+    if(date<=today){
+      totals[entry.place]=(totals[entry.place]||0)+Number(entry.hours);
+    }
+  });
+
+  const list=document.getElementById('summaryList');
+  list.innerHTML='';
+
+  Object.entries(totals)
+    .sort((a,b)=>b[1]-a[1])
+    .forEach(([place,hours])=>{
+      const row=document.createElement('div');
+      row.className='summary-item';
+      row.innerHTML=`
+        <div><span class="badge" style="background:${colorForPlace(place)}"></span>${place}</div>
+        <strong>${hours.toFixed(1)} h</strong>
+      `;
+      list.appendChild(row);
+    });
+
+  if(Object.keys(totals).length===0){
+    list.innerHTML='<div style="color:#94a3b8">No work hours registered yet.</div>';
+  }
+}
+
+window.addEventListener('click',e=>{
+  if(e.target.id==='modal') closeModal();
+});
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./service-worker.js');
+}
+
+render();
+</script>
+</body>
+</html>
