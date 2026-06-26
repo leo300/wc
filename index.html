@@ -259,8 +259,9 @@ function getWeekNumber(d){
   return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
 }
 
-function getTodayString(){
-  const d = new Date();
+/* TODAY */
+function getToday(){
+  const d=new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
