@@ -6,6 +6,7 @@
 <title>Work Calendar</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f172a">
+
 <style>
 *{box-sizing:border-box}
 body{
@@ -23,6 +24,7 @@ header{
 }
 h1{margin:0;font-size:1.4rem}
 #calendar{padding:12px}
+
 .month{
   background:rgba(255,255,255,.06);
   border:1px solid rgba(255,255,255,.08);
@@ -31,40 +33,46 @@ h1{margin:0;font-size:1.4rem}
   margin-bottom:18px;
 }
 .month h2{margin:0 0 12px}
+
 .weekdays,.days{
   display:grid;
   grid-template-columns:repeat(7,1fr);
   gap:6px;
 }
+
 .weekdays div{
   text-align:center;
   color:#94a3b8;
   font-size:.8rem;
   padding:4px 0;
 }
+
 .day{
-  min-height:74px;
+  min-height:90px;
   background:rgba(255,255,255,.05);
   border-radius:14px;
   padding:6px;
   cursor:pointer;
-  position:relative;
   overflow:hidden;
 }
 .day:hover{background:rgba(255,255,255,.1)}
 .day.empty{visibility:hidden}
+
 .day-number{font-weight:700;font-size:.9rem}
+
 .entry{
-  font-size:.7rem;
+  font-size:.65rem;
   margin-top:4px;
-  padding:2px 4px;
+  padding:2px 6px;
   border-radius:999px;
+  color:#111827;
+  font-weight:700;
+  margin-bottom:3px;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
-  color:#111827;
-  font-weight:700;
 }
+
 #summary{
   position:sticky;bottom:0;
   background:rgba(15,23,42,.95);
@@ -72,14 +80,18 @@ h1{margin:0;font-size:1.4rem}
   border-top:1px solid rgba(255,255,255,.1);
   padding:16px;
 }
+
 .summary-item{
   display:flex;justify-content:space-between;align-items:center;
   padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);
 }
 .summary-item:last-child{border-bottom:none}
+
 .badge{
-  width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:8px;
+  width:12px;height:12px;border-radius:50%;
+  display:inline-block;margin-right:8px;
 }
+
 #modal{
   position:fixed;inset:0;
   background:rgba(0,0,0,.6);
@@ -87,29 +99,49 @@ h1{margin:0;font-size:1.4rem}
   align-items:center;justify-content:center;
   padding:16px;z-index:100;
 }
+
 .modal-content{
-  width:100%;max-width:420px;
+  width:100%;max-width:460px;
   background:#111827;
   border-radius:20px;
   padding:20px;
 }
+
 label{display:block;margin-top:12px;margin-bottom:6px}
+
 input{
   width:100%;padding:12px;border:none;border-radius:12px;
   background:#1f2937;color:#fff;font-size:16px;
 }
+
 .buttons{
   display:flex;gap:10px;margin-top:18px;
 }
+
 button{
   flex:1;padding:12px;border:none;border-radius:12px;
   font-weight:700;font-size:15px;cursor:pointer;
 }
+
 .save{background:#22c55e;color:#fff}
 .delete{background:#ef4444;color:#fff}
 .cancel{background:#334155;color:#fff}
+
+.small-list{
+  margin-top:10px;
+  max-height:120px;
+  overflow:auto;
+  font-size:.75rem;
+}
+.small-item{
+  padding:6px;
+  background:#1f2937;
+  border-radius:10px;
+  margin-bottom:6px;
+}
 </style>
 </head>
+
 <body>
 
 <header>
@@ -126,39 +158,59 @@ button{
 <div id="modal">
   <div class="modal-content">
     <h3 id="modalDate"></h3>
+
+    <div id="existingList" class="small-list"></div>
+
     <label>Workplace</label>
-    <input id="placeInput" placeholder="e.g. Office, Store, Client">
-    <label>Hours worked</label>
-    <input id="hoursInput" type="number" min="0" step="0.5" placeholder="8">
+    <input id="placeInput" placeholder="Company / Job">
+
+    <label>Start time</label>
+    <input id="startInput" type="time">
+
+    <label>End time</label>
+    <input id="endInput" type="time">
+
     <div class="buttons">
-      <button class="save" onclick="saveEntry()">Save</button>
-      <button class="delete" onclick="deleteEntry()">Delete</button>
-      <button class="cancel" onclick="closeModal()">Cancel</button>
+      <button class="save" onclick="saveEntry()">Add</button>
+      <button class="delete" onclick="deleteDay()">Clear</button>
+      <button class="cancel" onclick="closeModal()">Close</button>
     </div>
   </div>
 </div>
 
 <script>
 const storageKey='work-calendar-data';
-let data=JSON.parse(localStorage.getItem(storageKey)||'{}');
+let data = JSON.parse(localStorage.getItem(storageKey) || '{}');
 let selectedDate='';
 
 function saveData(){
-  localStorage.setItem(storageKey,JSON.stringify(data));
+  localStorage.setItem(storageKey, JSON.stringify(data));
 }
 
 function colorForPlace(place){
   let hash=0;
-  for(let i=0;i<place.length;i++) hash=place.charCodeAt(i)+((hash<<5)-hash);
+  for(let i=0;i<place.length;i++)
+    hash=place.charCodeAt(i)+((hash<<5)-hash);
   return `hsl(${Math.abs(hash)%360} 75% 65%)`;
+}
+
+function calcHours(start,end){
+  if(!start || !end) return 0;
+  const [sh,sm]=start.split(':').map(Number);
+  const [eh,em]=end.split(':').map(Number);
+  return Math.max(0,(eh*60+em - (sh*60+sm))/60);
 }
 
 function openModal(date){
   selectedDate=date;
   document.getElementById('modal').style.display='flex';
   document.getElementById('modalDate').textContent=new Date(date).toDateString();
-  document.getElementById('placeInput').value=data[date]?.place||'';
-  document.getElementById('hoursInput').value=data[date]?.hours||'';
+
+  document.getElementById('placeInput').value='';
+  document.getElementById('startInput').value='';
+  document.getElementById('endInput').value='';
+
+  renderModalList();
 }
 
 function closeModal(){
@@ -167,29 +219,63 @@ function closeModal(){
 
 function saveEntry(){
   const place=document.getElementById('placeInput').value.trim();
-  const hours=parseFloat(document.getElementById('hoursInput').value||0);
-  if(!place || hours<=0){ alert('Enter workplace and hours'); return; }
-  data[selectedDate]={place,hours};
+  const start=document.getElementById('startInput').value;
+  const end=document.getElementById('endInput').value;
+
+  if(!place || !start || !end){
+    alert('Fill all fields');
+    return;
+  }
+
+  if(!data[selectedDate]) data[selectedDate]=[];
+
+  data[selectedDate].push({
+    place,
+    start,
+    end,
+    hours:calcHours(start,end)
+  });
+
   saveData();
-  closeModal();
   render();
+  renderModalList();
 }
 
-function deleteEntry(){
+function deleteDay(){
   delete data[selectedDate];
   saveData();
   closeModal();
   render();
 }
 
+function renderModalList(){
+  const list=document.getElementById('existingList');
+  list.innerHTML='';
+
+  const arr=data[selectedDate] || [];
+  if(arr.length===0){
+    list.innerHTML='<div style="color:#94a3b8">No entries yet</div>';
+    return;
+  }
+
+  arr.forEach(e=>{
+    const div=document.createElement('div');
+    div.className='small-item';
+    div.textContent=`${e.place} | ${e.start}-${e.end} (${e.hours.toFixed(1)}h)`;
+    list.appendChild(div);
+  });
+}
+
 function render(){
   const cal=document.getElementById('calendar');
   cal.innerHTML='';
+
   const now=new Date();
   const year=now.getFullYear();
 
   for(let m=0;m<12;m++){
     const month=new Date(year,m,1);
+
     const monthEl=document.createElement('div');
     monthEl.className='month';
 
@@ -199,11 +285,13 @@ function render(){
 
     const weekdays=document.createElement('div');
     weekdays.className='weekdays';
-    ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d=>{
-      const el=document.createElement('div');
-      el.textContent=d;
-      weekdays.appendChild(el);
-    });
+    ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+      .forEach(d=>{
+        const el=document.createElement('div');
+        el.textContent=d;
+        weekdays.appendChild(el);
+      });
+
     monthEl.appendChild(weekdays);
 
     const days=document.createElement('div');
@@ -220,6 +308,7 @@ function render(){
 
     for(let d=1;d<=daysInMonth;d++){
       const dateStr=`${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+
       const cell=document.createElement('div');
       cell.className='day';
       cell.onclick=()=>openModal(dateStr);
@@ -229,13 +318,14 @@ function render(){
       num.textContent=d;
       cell.appendChild(num);
 
-      if(data[dateStr]){
-        const e=document.createElement('div');
-        e.className='entry';
-        e.style.background=colorForPlace(data[dateStr].place);
-        e.textContent=`${data[dateStr].place} • ${data[dateStr].hours}h`;
-        cell.appendChild(e);
-      }
+      const entries=data[dateStr] || [];
+      entries.forEach(e=>{
+        const div=document.createElement('div');
+        div.className='entry';
+        div.style.background=colorForPlace(e.place);
+        div.textContent=`${e.place} ${e.start}-${e.end}`;
+        cell.appendChild(div);
+      });
 
       days.appendChild(cell);
     }
@@ -249,12 +339,11 @@ function render(){
 
 function renderSummary(){
   const totals={};
-  const today=new Date().toISOString().slice(0,10);
 
-  Object.entries(data).forEach(([date,entry])=>{
-    if(date<=today){
-      totals[entry.place]=(totals[entry.place]||0)+Number(entry.hours);
-    }
+  Object.entries(data).forEach(([date,entries])=>{
+    entries.forEach(e=>{
+      totals[e.place]=(totals[e.place]||0)+e.hours;
+    });
   });
 
   const list=document.getElementById('summaryList');
@@ -266,7 +355,10 @@ function renderSummary(){
       const row=document.createElement('div');
       row.className='summary-item';
       row.innerHTML=`
-        <div><span class="badge" style="background:${colorForPlace(place)}"></span>${place}</div>
+        <div>
+          <span class="badge" style="background:${colorForPlace(place)}"></span>
+          ${place}
+        </div>
         <strong>${hours.toFixed(1)} h</strong>
       `;
       list.appendChild(row);
