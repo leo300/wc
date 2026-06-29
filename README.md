@@ -1,4 +1,4 @@
-![Work Calendar Banner](assets/banner.png)
+<img src="assets/banner.png" alt="Banner" width="100%" />
 
 # 📅 Work Calendar
 
