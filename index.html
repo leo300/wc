@@ -162,13 +162,9 @@ input {
 }
 
 #summaryContent{
-    overflow:hidden;
-    max-height:500px;
-    transition:max-height .3s ease;
-}
-
-#summaryContent.closed{
-    max-height:0;
+  overflow:hidden;
+  height:0;
+  transition:height 0.35s ease;
 }
 
 .footer{
@@ -583,16 +579,33 @@ function renderSummary(){
   });
 }
 
+  
 const toggleBtn = document.getElementById("toggleSummary");
 const summaryContent = document.getElementById("summaryContent");
 
-let isOpen = false;
+let open = false;
 
-toggleBtn.addEventListener("click", () => {
-    isOpen = !isOpen;
+toggleBtn.addEventListener("pointerup", (e) => {
+  e.preventDefault();
 
-    summaryContent.classList.toggle("closed", !isOpen);
-    toggleBtn.classList.toggle("open", isOpen);
+  if (!open) {
+    summaryContent.style.height = summaryContent.scrollHeight + "px";
+    toggleBtn.classList.add("open");
+    open = true;
+  } else {
+    summaryContent.style.height = summaryContent.scrollHeight + "px";
+    summaryContent.offsetHeight;
+    summaryContent.style.height = "0px";
+    toggleBtn.classList.remove("open");
+    open = false;
+  }
+});
+
+  
+summaryContent.addEventListener("transitionend", () => {
+  if (open) {
+    summaryContent.style.height = "auto";
+  }
 });
 
 updateFilter();
