@@ -17,7 +17,7 @@ body{
   color:#fff;
 }
 
-/* HEADER */
+
 header{
   position:sticky;
   top:0;
@@ -38,7 +38,7 @@ header{
   width:220px;
 }
 
-/* BUTTONS */
+
 button{
   padding:10px;
   border:none;
@@ -55,7 +55,7 @@ input {
 .export{background:#3b82f6;color:#fff}
 .import{background:#f59e0b;color:#111;margin-left:8px}
 
-/* CALENDAR */
+
 #calendar{padding:12px}
 
 .month{
@@ -65,7 +65,7 @@ input {
   border-radius:14px;
 }
 
-/* WEEK HEADER */
+
 .weekdays{
   display:grid;
   grid-template-columns:40px repeat(7,1fr);
@@ -75,7 +75,7 @@ input {
   text-align:center;
 }
 
-/* WEEK ROW */
+
 .week-row{
   display:grid;
   grid-template-columns:40px repeat(7,1fr);
@@ -91,7 +91,7 @@ input {
   padding-top:10px;
 }
 
-/* DAYS GRID */
+
 .day{
   min-height:80px;
   background:rgba(255,255,255,.05);
@@ -115,7 +115,7 @@ input {
   font-weight:700;
 }
 
-/* SUMMARY */
+
 #summary{
   position:sticky;
   bottom:0;
@@ -142,7 +142,7 @@ input {
   display:inline-block;margin-right:6px;
 }
 
-/* MODAL */
+
 #modal{
   position:fixed;
   inset:0;
@@ -200,7 +200,7 @@ input{
     </div>
 </div>
 
-<!-- MODAL -->
+
 <div id="modal">
   <div class="modal-content">
     <h3 id="modalDate"></h3>
@@ -215,7 +215,7 @@ input{
     <input id="endInput" type="time">
 
     <button onclick="saveEntry()" style="background:#22c55e;color:#fff">Add</button>
-    <button onclick="deleteDay()" style="background:#ef4444;color:#fff">Clear</button>
+    <div id="entryList" style="margin:10px 0"></div>
     <button onclick="closeModal()" style="background:#334155;color:#fff">Close</button>
   </div>
 </div>
@@ -226,32 +226,33 @@ let data = JSON.parse(localStorage.getItem("work-data") || "{}");
 let selectedDate="";
 let filter="";
 
-/* SAVE */
+
 function save(){
   localStorage.setItem("work-data", JSON.stringify(data));
 }
 
-/* FILTER */
+
 function setFilter(v){
   filter=v;
   render();
+  closeModal();
 }
 
-/* COLOR */
+
 function color(p){
   let h=0;
   for(let i=0;i<p.length;i++) h=p.charCodeAt(i)+((h<<5)-h);
   return `hsl(${Math.abs(h)%360} 70% 60%)`;
 }
 
-/* HOURS */
+
 function hours(s,e){
   const [sh,sm]=s.split(":").map(Number);
   const [eh,em]=e.split(":").map(Number);
   return Math.max(0,(eh*60+em)-(sh*60+sm))/60;
 }
 
-/* WEEK NUMBER (ISO SIMPLE) */
+
 function getWeekNumber(d){
   d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
@@ -259,13 +260,13 @@ function getWeekNumber(d){
   return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
 }
 
-/* TODAY */
+
 function getToday(){
   const d=new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
-/* MODAL */
+
 function openModal(date){
   selectedDate=date;
 
@@ -275,13 +276,15 @@ function openModal(date){
   document.getElementById("placeInput").value="";
   document.getElementById("startInput").value="";
   document.getElementById("endInput").value="";
+  const list=document.getElementById("entryList");
+  list.innerHTML=(data[date]||[]).map((e,i)=>`<div style="display:flex;justify-content:space-between;margin:4px 0"><span>${e.place} ${e.start}-${e.end}</span><button onclick="deleteEntry(${i})" style="background:#ef4444;color:#fff">Delete</button></div>`).join("");
 }
 
 function closeModal(){
   document.getElementById("modal").style.display="none";
 }
 
-/* TOUCH SAFE */
+
 function attachTap(cell,date){
   let x=0,y=0;
 
@@ -299,7 +302,7 @@ function attachTap(cell,date){
   cell.addEventListener("click",()=>openModal(date));
 }
 
-/* SAVE ENTRY */
+
 function saveEntry(){
   const place=document.getElementById("placeInput").value.trim();
   const start=document.getElementById("startInput").value;
@@ -317,9 +320,18 @@ function saveEntry(){
   save();
   updateFilter();
   render();
+  closeModal();
 }
 
-/* DELETE */
+
+
+function deleteEntry(index){
+ if(!data[selectedDate]) return;
+ data[selectedDate].splice(index,1);
+ if(data[selectedDate].length===0) delete data[selectedDate];
+ save();updateFilter();render();openModal(selectedDate);
+}
+
 function deleteDay(){
   delete data[selectedDate];
   save();
@@ -328,7 +340,7 @@ function deleteDay(){
   closeModal();
 }
 
-/* FILTER LIST */
+
 function updateFilter(){
   const sel=document.getElementById("companyFilter");
   const set=new Set();
@@ -350,7 +362,7 @@ function updateFilter(){
   sel.value=cur;
 }
 
-/* IMPORT */
+
 function importExcel(e){
   const file=e.target.files[0];
   const reader=new FileReader();
@@ -382,7 +394,7 @@ function importExcel(e){
   reader.readAsBinaryString(file);
 }
 
-/* EXPORT */
+
 function exportExcel(){
   const wb=XLSX.utils.book_new();
   const grouped={};
@@ -412,7 +424,7 @@ function exportExcel(){
   XLSX.writeFile(wb,"work-hours.xlsx");
 }
 
-/* RENDER */
+
 function render(){
   const cal=document.getElementById("calendar");
   cal.innerHTML="";
@@ -504,7 +516,7 @@ function render(){
   renderSummary();
 }
 
-/* SUMMARY */
+
 function renderSummary(){
   const totals={};
 
@@ -526,7 +538,7 @@ function renderSummary(){
   });
 }
 
-/* INIT */
+
 updateFilter();
 render();
 
