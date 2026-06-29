@@ -586,9 +586,13 @@ function renderSummary(){
 const toggleBtn = document.getElementById("toggleSummary");
 const summaryContent = document.getElementById("summaryContent");
 
+let isOpen = false;
+
 toggleBtn.addEventListener("click", () => {
-    summaryContent.classList.toggle("closed");
-    toggleBtn.classList.toggle("open");
+    isOpen = !isOpen;
+
+    summaryContent.classList.toggle("closed", !isOpen);
+    toggleBtn.classList.toggle("open", isOpen);
 });
 
 updateFilter();
