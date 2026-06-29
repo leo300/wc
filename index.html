@@ -130,33 +130,45 @@ input {
   padding:6px 0;
 }
 
-.summary-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+.summary-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
 }
 
-.toggle-btn {
-    width: 24px;
-    height: 24px;
-    border: none;
-    background: #eee;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-    transition: transform 0.2s;
+.summary-toggle{
+    width:36px;
+    height:36px;
+    border:none;
+    border-radius:50%;
+    background:#1e293b;
+    color:#fff;
+    cursor:pointer;
+    font-size:18px;
+    font-weight:bold;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:.25s;
+    box-shadow:0 2px 8px rgba(0,0,0,.35);
 }
 
-.toggle-btn:hover {
-    background: #ddd;
+.summary-toggle:hover{
+    background:#334155;
 }
 
-#summaryContent.collapsed {
-    display: none;
+.summary-toggle.open{
+    transform:rotate(180deg);
 }
 
-.toggle-btn.collapsed {
-    transform: rotate(-90deg);
+#summaryContent{
+    overflow:hidden;
+    max-height:500px;
+    transition:max-height .3s ease;
+}
+
+#summaryContent.closed{
+    max-height:0;
 }
 
 .footer{
@@ -224,7 +236,7 @@ input{
 <div id="summary">
     <div class="summary-header">
         <h3>Total Hours</h3>
-        <button id="toggleSummary" class="toggle-btn">▼</button>
+        <button id="toggleSummary" class="summary-toggle">⌃</button>
     </div>
     <div id="summaryContent">
         <div id="summaryList"></div>
@@ -349,18 +361,6 @@ function saveEntry(){
     place,start,end,
     hours:hours(start,end)
   });
-
-const toggleBtn = document.getElementById("toggleSummary");
-const summaryContent = document.getElementById("summaryContent");
-
-toggleBtn.addEventListener("click", () => {
-    summaryContent.classList.toggle("collapsed");
-    toggleBtn.classList.toggle("collapsed");
-
-    toggleBtn.textContent = summaryContent.classList.contains("collapsed")
-        ? "▶"
-        : "▼";
-});
 
   save();
   updateFilter();
@@ -583,6 +583,13 @@ function renderSummary(){
   });
 }
 
+const toggleBtn = document.getElementById("toggleSummary");
+const summaryContent = document.getElementById("summaryContent");
+
+toggleBtn.addEventListener("click", () => {
+    summaryContent.classList.toggle("closed");
+    toggleBtn.classList.toggle("open");
+});
 
 updateFilter();
 render();
