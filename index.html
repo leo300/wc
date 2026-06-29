@@ -130,6 +130,35 @@ input {
   padding:6px 0;
 }
 
+.summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.toggle-btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: #eee;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: transform 0.2s;
+}
+
+.toggle-btn:hover {
+    background: #ddd;
+}
+
+#summaryContent.collapsed {
+    display: none;
+}
+
+.toggle-btn.collapsed {
+    transform: rotate(-90deg);
+}
+
 .footer{
   text-align:center;
   margin-top:12px;
@@ -193,13 +222,17 @@ input{
 <div id="calendar"></div>
 
 <div id="summary">
-  <h3>Total Hours</h3>
-  <div id="summaryList"></div>
-    <div class="footer">
-      © <span id="year"></span> Work Calendar App - LM | Built with ❤️
+    <div class="summary-header">
+        <h3>Total Hours</h3>
+        <button id="toggleSummary" class="toggle-btn">▼</button>
+    </div>
+    <div id="summaryContent">
+        <div id="summaryList"></div>
+        <div class="footer">
+            © <span id="year"></span> Work Calendar App - LM | Built with ❤️
+        </div>
     </div>
 </div>
-
 
 <div id="modal">
   <div class="modal-content">
@@ -316,6 +349,18 @@ function saveEntry(){
     place,start,end,
     hours:hours(start,end)
   });
+
+const toggleBtn = document.getElementById("toggleSummary");
+const summaryContent = document.getElementById("summaryContent");
+
+toggleBtn.addEventListener("click", () => {
+    summaryContent.classList.toggle("collapsed");
+    toggleBtn.classList.toggle("collapsed");
+
+    toggleBtn.textContent = summaryContent.classList.contains("collapsed")
+        ? "▶"
+        : "▼";
+});
 
   save();
   updateFilter();
