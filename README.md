@@ -1,12 +1,10 @@
+![Work Calendar Banner](assets/banner.png)
+
 # 📅 Work Calendar
 
 A simple, fast, and privacy-focused work calendar for tracking shifts, hours, and multiple companies — without cloud storage or accounts.
 
 All data is stored locally in your browser, giving you full control and privacy.
-
-<p align="center">
-  <img src="assets/banner.png" alt="Work Calendar Banner" width="100%">
-</p>
 
 ---
 
